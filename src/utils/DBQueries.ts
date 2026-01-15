@@ -5,6 +5,7 @@ const createCheckTable = async () =>{
         await pool.query(`CREATE TABLE IF NOT EXISTS checks (
             id SERIAL PRIMARY KEY,
             name VARCHAR(100) NOT NULL,
+            userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             url VARCHAR(255) NOT NULL,
             method VARCHAR(10) NOT NULL,
             expected_status INTEGER NOT NULL,
