@@ -1,14 +1,14 @@
 import type { Request, Response } from "express";
 import pool from "../utils/dbConnection";
-import { createCheckTable } from "../utils/DBQueries";
+import { createCheckErrorTable, createCheckTable } from "../utils/DBQueries";
 import fetch from 'node-fetch';
 interface AuthRequest extends Request {
-    userId?: number;
+    userId?: string;
 }
 
 const createCheck = async (req: AuthRequest, res: Response) => {
     try {
-        await createCheckTable(); //for creating the check table
+        // await createCheckTable(); //for creating the check table
         const { name, url, method, expectedStatusCodes, timeout_ms } = req.body;
         const userId = req.userId;
         // Here, you would typically insert the new check into your database
@@ -51,41 +51,92 @@ const getChecks = async (req: AuthRequest, res: Response) => {
         })
     }
 }
+const check = async (req: AuthRequest, res: Response) => {
+  try {
+    // await createCheckErrorTable(); // Ensure the check_results table exists
+    const userId = req.userId;
+    const checkId = req.params.id;
 
-const check = async(req : AuthRequest,res : Response) => {
-    try {
-        const checkId = req.params.id;
-        const row = await pool.query(`SELECT * FROM checks WHERE id = $1;`, [checkId]);
-        const check = row.rows[0];
-        const startTime = performance.now();
-        const response = await fetch(check.url, { method: check.method });
-        const endTime = performance.now();
-        const latency = endTime - startTime;
-        if(latency > parseInt(check.timeout_ms)) {
-            return res.status(408).json({
-                success: false,
-                message: "Request Timeout"
-            })
-        }
-        if(response.status !== check.expected_status) {
-            return res.status(502).json({
-                success: false,
-                message: `Expected status ${check.expected_status} but got ${response.status}`
-            })
-        }
-        res.status(200).json({
-            success: true,
-            message: "Check Successful",
-            latency
-        })
-    } catch (error) {
-        console.log(error);
-        res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        })
+    const result = await pool.query(
+      `SELECT * FROM checks WHERE id = $1 AND userid = $2`,
+      [checkId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Check not found"
+      });
     }
-}
+
+    const check = result.rows[0];
+
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      Number(check.timeout_ms)
+    );
+
+    const start = process.hrtime.bigint();
+
+    try {
+      const response = await fetch(check.url, {
+        method: check.method,
+        signal: controller.signal
+      });
+
+      const end = process.hrtime.bigint();
+     const latency = Math.round(Number(end - start) / 1_000_000);
+
+      if (response.status !== check.expected_status) {
+        await pool.query(`INSERT INTO check_results(checkId,success,status_code,latency_ms) VALUES($1,$2,$3,$4)`,
+          [check.id, false, response.status, latency]);
+        return res.status(502).json({
+          success: false,
+          message: `Expected ${check.expected_status}, got ${response.status}`,
+          latency
+        });
+      }
+      await pool.query(`INSERT INTO check_results(checkId,success,status_code,latency_ms) VALUES($1,$2,$3,$4)`,
+          [check.id, true, response.status, latency]);
+      return res.status(200).json({
+        success: true,
+        message: "Check successful",
+        latency
+      });
+
+    } catch (err: any) {
+      const end = process.hrtime.bigint();
+      const latency = Math.round(Number(end - start) / 1_000_000);
+
+      if (err.name === "AbortError") {
+        await pool.query(`INSERT INTO check_results(checkId,success,status_code,latency_ms) VALUES($1,$2,$3,$4)`,
+          [check.id, false, null, latency]);
+        return res.status(408).json({
+          success: false,
+          message: "Request timed out",
+          latency
+        });
+      }
+      await pool.query(`INSERT INTO check_results(checkId,success,status_code,latency_ms) VALUES($1,$2,$3,$4)`,
+          [check.id, false, null, latency]);
+      return res.status(502).json({
+        success: false,
+        message: "Failed to reach API",
+        latency
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
 
 
 

@@ -4,8 +4,8 @@ import { authCheck } from '../utils/Middleware';
 
 const router = express.Router();
 
-router.post('/create', authCheck ,createCheck);
-router.get('/checks', authCheck ,getChecks);
+router.post('/', authCheck ,createCheck);
+router.get('/', authCheck ,getChecks);
 router.post('/:id',authCheck,check);
 
 export default router;
