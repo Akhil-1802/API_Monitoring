@@ -4,9 +4,10 @@ import { authCheck } from '../utils/Middleware';
 
 const router = express.Router();
 
-router.post('/', authCheck ,createCheck);
-router.get('/', authCheck ,getChecks);
-router.post('/:id',authCheck,check);
-router.get('/:id/results',authCheck,getCheckResults)
+router.post('/', authCheck ,createCheck); //router for creating a api_check
+router.get('/', authCheck ,getChecks);  //router for getting all checks of a user
+router.post('/:id',authCheck,check);    //router for performing a check on api
+router.get('/:id/results',authCheck,getCheckResults);  //router for getting all check results for a particular check
+
 
 export default router;

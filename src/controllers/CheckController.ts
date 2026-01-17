@@ -3,7 +3,7 @@ import pool from "../utils/dbConnection";
 import { createCheckErrorTable, createCheckTable } from "../utils/DBQueries";
 import fetch from 'node-fetch';
 import { checkIncident } from "../utils/helperFunction";
-interface AuthRequest extends Request {
+export interface AuthRequest extends Request {
     userId?: string;
 }
 

@@ -17,7 +17,6 @@ const createCheckTable = async () =>{
     }
 }
 
-
 const createCheckErrorTable = async () =>{
     try {
         await pool.query(`CREATE TABLE IF NOT EXISTS check_results (
@@ -31,7 +30,6 @@ const createCheckErrorTable = async () =>{
         console.log(error)
     }
 }
-
 
 const createUserTable = async () =>{
     try {
@@ -61,4 +59,6 @@ const createIncidentTable = async() =>{
         console.log(error);
     }
 }
+
+
 export { createCheckTable, createCheckErrorTable , createUserTable ,createIncidentTable};
