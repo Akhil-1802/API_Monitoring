@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import pool from "../utils/dbConnection";
 import { createCheckErrorTable, createCheckTable } from "../utils/DBQueries";
 import fetch from 'node-fetch';
+import { checkIncident } from "../utils/helperFunction";
 interface AuthRequest extends Request {
     userId?: string;
 }
@@ -70,27 +71,29 @@ const check = async (req: AuthRequest, res: Response) => {
     }
 
     const check = result.rows[0];
-
+    //abort controller for timeout
     const controller = new AbortController();
     const timeout = setTimeout(
       () => controller.abort(),
       Number(check.timeout_ms)
-    );
+    );//timeout in ms as soon as timeout occurs abort the fetch request
 
-    const start = process.hrtime.bigint();
+    const start = process.hrtime.bigint();//start time in nanoseconds
 
     try {
       const response = await fetch(check.url, {
         method: check.method,
-        signal: controller.signal
+        signal: controller.signal //attach the signal to fetch request, so that it can be aborted
       });
 
-      const end = process.hrtime.bigint();
-     const latency = Math.round(Number(end - start) / 1_000_000);
+      const end = process.hrtime.bigint(); //end time in nanoseconds
+     const latency = Math.round(Number(end - start) / 1_000_000); //latency in milliseconds
 
       if (response.status !== check.expected_status) {
         await pool.query(`INSERT INTO check_results(checkId,success,status_code,latency_ms) VALUES($1,$2,$3,$4)`,
           [check.id, false, response.status, latency]);
+        
+        await checkIncident(false, check.id); //handle incident creation
         return res.status(502).json({
           success: false,
           message: `Expected ${check.expected_status}, got ${response.status}`,
@@ -99,19 +102,21 @@ const check = async (req: AuthRequest, res: Response) => {
       }
       await pool.query(`INSERT INTO check_results(checkId,success,status_code,latency_ms) VALUES($1,$2,$3,$4)`,
           [check.id, true, response.status, latency]);
+      await checkIncident(true, check.id); //handle incident creation
       return res.status(200).json({
         success: true,
         message: "Check successful",
         latency
       });
 
-    } catch (err: any) {
-      const end = process.hrtime.bigint();
+    } catch (err: any) { // catch fetch errors
+      const end = process.hrtime.bigint(); //end time in nanoseconds
       const latency = Math.round(Number(end - start) / 1_000_000);
 
       if (err.name === "AbortError") {
         await pool.query(`INSERT INTO check_results(checkId,success,status_code,latency_ms) VALUES($1,$2,$3,$4)`,
           [check.id, false, null, latency]);
+        await checkIncident(false, check.id); //handle incident creation
         return res.status(408).json({
           success: false,
           message: "Request timed out",
@@ -120,6 +125,7 @@ const check = async (req: AuthRequest, res: Response) => {
       }
       await pool.query(`INSERT INTO check_results(checkId,success,status_code,latency_ms) VALUES($1,$2,$3,$4)`,
           [check.id, false, null, latency]);
+      await checkIncident(false, check.id); //handle incident creation
       return res.status(502).json({
         success: false,
         message: "Failed to reach API",
@@ -139,6 +145,32 @@ const check = async (req: AuthRequest, res: Response) => {
 };
 
 
+const getCheckResults = async(req : AuthRequest, res: Response) => {
+  try {
+        const checkId = req.params.id;
+        const query = req.query;
+        if(query === undefined){
+          res.status(400).json({
+            success : false,
+            message : "Bad Request"
+          })
+        }
+        const rows = await pool.query(`SELECT * FROM check_results WHERE checkid = $1 order by created_at DESC LIMIT $2;`,[checkId,query.limit]);
+        const check_results = rows.rows;
+        res.status(200).json({
+            success: true,
+            message: "Check Results Fetched Successfully",
+            check_results
+        })
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        })
+    }
+}
 
 
-export {createCheck,getChecks,check};
+
+export {createCheck,getChecks,check,getCheckResults};

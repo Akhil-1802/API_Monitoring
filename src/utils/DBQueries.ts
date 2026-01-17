@@ -48,4 +48,17 @@ const createUserTable = async () =>{
     }
 }
 
-export { createCheckTable, createCheckErrorTable , createUserTable };
+const createIncidentTable = async() =>{
+    try {
+        await pool.query(`CREATE TABLE incidents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  checkid UUID NOT NULL REFERENCES checks(id),
+  status TEXT NOT NULL CHECK (status IN ('open', 'resolved')),
+  started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at TIMESTAMP
+);`);
+    } catch (error) {
+        console.log(error);
+    }
+}
+export { createCheckTable, createCheckErrorTable , createUserTable ,createIncidentTable};
