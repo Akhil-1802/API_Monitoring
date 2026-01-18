@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
-import pool from "../utils/dbConnection";
-import { createCheckErrorTable, createCheckTable } from "../utils/DBQueries";
+import pool from "../db/dbConnection";
+import { createCheckErrorTable, createCheckTable } from "../db/DBQueries";
 import fetch from 'node-fetch';
 import { checkIncident } from "../utils/helperFunction";
 export interface AuthRequest extends Request {

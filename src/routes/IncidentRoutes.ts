@@ -1,5 +1,5 @@
 import express from 'express';
-import { authCheck } from '../utils/Middleware';
+import { authCheck } from '../middleware/Middleware';
 import { getIncidents } from '../controllers/IncidentController';
 
 

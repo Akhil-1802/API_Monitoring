@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import type { AuthRequest } from "./CheckController";
-import pool from "../utils/dbConnection";
+import pool from "../db/dbConnection";
 
 //get all incidents for a user using optional query param checkId
 const getIncidents = async(req: AuthRequest, res: Response) => {

@@ -1,6 +1,6 @@
 import {  type Request, type Response } from "express";
-import { createUserTable } from "../utils/DBQueries";
-import pool from "../utils/dbConnection";
+import { createUserTable } from "../db/DBQueries";
+import pool from "../db/dbConnection";
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 
