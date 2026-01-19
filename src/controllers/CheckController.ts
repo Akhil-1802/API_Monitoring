@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 import pool from "../db/dbConnection";
-import { createCheckErrorTable, createCheckTable } from "../db/DBQueries";
 import fetch from 'node-fetch';
 import { checkIncident } from "../utils/helperFunction";
 export interface AuthRequest extends Request {
@@ -9,12 +8,11 @@ export interface AuthRequest extends Request {
 
 const createCheck = async (req: AuthRequest, res: Response) => {
     try {
-        // await createCheckTable(); //for creating the check table
-        const { name, url, method, expectedStatusCodes, timeout_ms } = req.body;
+        const { name, url, method, expected_status, timeout_ms,interval_time } = req.body;
         const userId = req.userId;
         // Here, you would typically insert the new check into your database
-        const check = await pool.query(`INSERT INTO checks(name,userID,url,method,expected_status,timeout_ms) VALUES($1,$2,$3,$4,$5,$6);`,
-            [name, userId,url, method, expectedStatusCodes, timeout_ms]);
+        const check = await pool.query(`INSERT INTO checks(name,userID,url,method,expected_status,timeout_ms,interval_time) VALUES($1,$2,$3,$4,$5,$6,$7);`,
+            [name, userId,url, method, expected_status, timeout_ms,interval_time]);
         if(check.rowCount === 0){
             res.status(400).json({
                 success : false,
@@ -54,7 +52,6 @@ const getChecks = async (req: AuthRequest, res: Response) => {
 }
 const check = async (req: AuthRequest, res: Response) => {
   try {
-    // await createCheckErrorTable(); // Ensure the check_results table exists
     const userId = req.userId;
     const checkId = req.params.id;
 

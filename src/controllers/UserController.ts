@@ -1,5 +1,4 @@
 import {  type Request, type Response } from "express";
-import { createUserTable } from "../db/DBQueries";
 import pool from "../db/dbConnection";
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
@@ -7,7 +6,6 @@ import jwt from 'jsonwebtoken'
 
 const registerUser = async(req : Request,res : Response) =>{
     try {
-        // await createUserTable(); //for creating the user table
         const body = req.body;
         const {username , email , password } = body;
         const user = await pool.query(`SELECT * FROM users

@@ -1,9 +1,17 @@
 import pool from "../db/dbConnection";
-import { createIncidentTable } from "../db/DBQueries";
 
+export interface checkParams{
+    id : string;
+    url : string;
+    method : string;
+    timeout_ms : number;
+    expected_status : number;
+    name : string;
+    interval_time : number;
+    last_run : Date | null;
+}
 //Incident handling logic here using transactions
 const checkIncident = async(success: boolean , checkid: string) => {
-    // await createIncidentTable(); //Ensure the incident table exists
     const client = await pool.connect(); //get a client from the pool dedicatedly
     try {
         await client.query('BEGIN;');
@@ -35,5 +43,77 @@ const checkIncident = async(success: boolean , checkid: string) => {
     }
 }
 
+const checkAndUpdateLastRun = async (check : checkParams) => {
 
-export { checkIncident };
+  try {
+    //update last_run to current timestamp
+    await pool.query(`UPDATE checks SET last_run = CURRENT_TIMESTAMP WHERE id = $1;`,[check.id]);
+     //abort controller for timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      Number(check.timeout_ms)
+    );//timeout in ms as soon as timeout occurs abort the fetch request
+
+    const start = process.hrtime.bigint();//start time in nanoseconds
+
+    try {
+      const response = await fetch(check.url, {
+        method: check.method,
+        signal: controller.signal //attach the signal to fetch request, so that it can be aborted
+      });
+
+      const end = process.hrtime.bigint(); //end time in nanoseconds
+     const latency = Math.round(Number(end - start) / 1_000_000); //latency in milliseconds
+
+      if (response.status !== check.expected_status) {
+        await pool.query(`INSERT INTO check_results(checkId,success,status_code,latency_ms) VALUES($1,$2,$3,$4)`,
+          [check.id, false, response.status, latency]);
+        
+        await checkIncident(false, check.id); //handle incident creation
+        return;
+      }
+      await pool.query(`INSERT INTO check_results(checkId,success,status_code,latency_ms) VALUES($1,$2,$3,$4)`,
+          [check.id, true, response.status, latency]);
+      await checkIncident(true, check.id); //handle incident creation
+      return;
+
+    } catch (err: any) { // catch fetch errors
+      const end = process.hrtime.bigint(); //end time in nanoseconds
+      const latency = Math.round(Number(end - start) / 1_000_000);
+
+      if (err.name === "AbortError") {
+        await pool.query(`INSERT INTO check_results(checkId,success,status_code,latency_ms) VALUES($1,$2,$3,$4)`,
+          [check.id, false, null, latency]);
+        await checkIncident(false, check.id); //handle incident creation
+       return;
+      }
+      await pool.query(`INSERT INTO check_results(checkId,success,status_code,latency_ms) VALUES($1,$2,$3,$4)`,
+          [check.id, false, null, latency]);
+      await checkIncident(false, check.id); //handle incident creation
+      return;
+    } finally {
+      clearTimeout(timeout);
+    }
+
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+
+
+async function waitForDB() {
+  while (true) {
+    try {
+      await pool.query("SELECT 1");
+      console.log("Database connected");
+      break;
+    } catch {
+      console.log("Waiting for database...");
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+}
+
+export { checkIncident ,checkAndUpdateLastRun,waitForDB};
