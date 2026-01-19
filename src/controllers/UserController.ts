@@ -49,7 +49,8 @@ const loginUser = async(req : Request, res : Response) =>{
   maxAge: 15 * 60 * 1000 // 15 minutes
 });
         res.status(200).json({
-            success : true,message :"Login Successful"
+            success : true,message :"Login Successful",
+            token
         })
     } catch (error) {
         console.log(error);
