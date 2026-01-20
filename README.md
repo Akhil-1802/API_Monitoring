@@ -71,24 +71,74 @@ A stateful representation of an ongoing API outage.
 ### **Authentication**
 
 * `POST /api/auth/register`
+```
+POST /auth/register
+Content-Type: application/json
+body:
+{
+  "username": "demo",
+  "email": "demo@example.com",
+  "password": "password123",
+}
+
+```
 
 * `POST /api/auth/login`
+```
+POST /auth/login
+Content-Type: application/json
+body:{
+  "email":"demo@example.com",
+  "password":"password123"
+}
+```
 
 ### **Checks**
 
 * `POST /api/check` – Create a new API check
-
+```
+POST /api/check
+Content-Type : application/json
+Authorization: Bearer <JWT_TOKEN>
+body : {
+  "name": "My API Check",
+  "url": "https://api.example.com/health",
+  "method": "GET",
+  "expected_status": 200,
+  "timeout_ms": 5000,
+  "interval_time": 5
+}
+```
 * `GET /api/check` – Get all checks for the authenticated user
-
+```
+GET /api/check
+Authorization: Bearer <JWT_TOKEN>
+```
 * `POST /api/check/:id` – Execute a check manually
+```
+POST /api/check/:id
+Authorization: Bearer <JWT_TOKEN>
+```
 
 * `GET /api/check/:id/results` – Get recent execution results
+```
+GET /api/check/:id/results
+Authorization: Bearer <JWT_TOKEN>
+```
 
 ### **Incidents**
 
 * `GET /api/incident` – Get all incidents for the authenticated user
+```
+GET /api/incident
+Authorization: Bearer <JWT_TOKEN>
+```
 
 * `GET /api/incident?checkId=...` – Filter incidents by checkId
+```
+GET /api/incident?checkId=checkid
+Authorization: Bearer <JWT_TOKEN>
+```
 ## Tech Stack
 
 **Node.js + TypeScript**<br>
@@ -97,7 +147,172 @@ A stateful representation of an ongoing API outage.
 **node-postgres (pg)**<br>
 **JWT Authentication**
 
-## How to Run Locally
-## Design Decisions
+## How to Run Locally (Docker)
+This project is fully containerized using Docker and Docker Compose, so no local Node, Bun, or PostgreSQL installation is required.
+
+### **Prerequisites**<br>
+* Docker
+
+* Docker Compose
+
+### **Steps**
+
+#### **1. Clone the repository**
+
+```
+git clone <your-repository-url>
+cd backend-api-monitoring
+```
+
+
+#### **2. Start the application**
+
+```
+docker-compose up --build
+```
+
+
+This will:
+
+* Build the API service (Bun + Express)
+
+* Start a PostgreSQL database
+
+* Automatically initialize the database schema
+
+* Start the cron-based monitoring service
+
+#### **3. Access the API**
+
+* API base URL: `http://localhost:3000`
+
+---
+
+### **Environment Configuration**
+
+Environment variables are managed via Docker Compose.
+A sample `.env.example` file is provided.
+```
+PORT = 3000
+JWT_SECRET = YOUR_SECRET_KEY
+DATABASE_URL=postgres://postgres:postgres@db:5432/api_monitor
+NODE_ENV= development
+```
+
+Docker Compose automatically injects these values into the containers.
+
+---
+
+#### **First-Time Startup Behavior**
+
+* The database starts empty
+
+* No users or checks exist initially
+
+* Users must register and create checks via the API
+
+* The cron job safely runs even when no checks exist
+---
+### **Stopping the Application**
+```
+docker-compose down
+```
+
+
+**To remove database data completely:**
+
+```
+docker-compose down -v
+```
+
+### **Troubleshooting**
+
+* Ensure ports 3000 is not already in use
+
+* Run docker ps to verify containers are running
+
+* Use docker-compose logs to inspect container logs
 ## What I Would Add Next
+
+This project is intentionally built as a solid foundation.
+Given more time, the following enhancements would further improve scalability, reliability, and real-world usability.
+
+### **🔄 Background Job Processing (Redis + BullMQ)**
+
+Move API checks out of the main application process into background workers using Redis and BullMQ.
+This would:
+
+* Improve scalability for large numbers of checks
+
+* Prevent slow or failing checks from blocking the API
+
+* Enable horizontal worker scaling
+
+### **📊 Metrics & Analytics**
+
+Introduce aggregated metrics for each check, such as:
+
+* Uptime percentage
+
+* Average and p95 latency
+
+* Incident duration statistics
+
+These metrics would be computed from stored check results and exposed via dedicated endpoints.
+
+### **🔔 Notifications & Alerts**
+
+Add alerting mechanisms for incident creation and resolution:
+
+* Email notifications
+
+* Webhook integrations (Slack, Discord, PagerDuty)
+
+* Custom alert thresholds per check
+
+### **📄 OpenAPI Documentation**
+
+Provide interactive API documentation using OpenAPI:
+
+* Improves developer onboarding
+
+* Enables automatic client generation
+
+* Makes the API easier to test and explore
+
+### **🔐 Role-Based Access Control**
+
+Extend authentication to support roles:
+
+* Admin users
+
+* Read-only users
+
+* Organization-level access
+
+* This would allow teams to manage shared checks securely.
+
+### **🌍 Production Deployment**
+
+Deploy the system to a cloud environment:
+
+* Managed PostgreSQL
+
+* Environment-based configuration
+
+* Health checks and logging
+
+* Horizontal scaling for workers
+
+## **🧪 Automated Testing**
+
+Add a full test suite:
+
+* Unit tests for business logic
+
+* Integration tests for API endpoints
+
+* Database transaction testing
+
+* This would ensure long-term reliability as the system grows.
 
