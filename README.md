@@ -160,8 +160,8 @@ This project is fully containerized using Docker and Docker Compose, so no local
 #### **1. Clone the repository**
 
 ```
-git clone <your-repository-url>
-cd backend-api-monitoring
+git clone https://github.com/Akhil-1802/API_Monitoring.git
+cd API_Monitoring
 ```
 
 
